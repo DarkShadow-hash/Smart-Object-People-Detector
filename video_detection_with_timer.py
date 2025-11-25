@@ -3,40 +3,52 @@ import time
 import cv2
 from ultralytics import YOLO
 
-# --- Configuration et Chemins (Adaptez les chemins si nécessaire) ---
+# Configuration and paths (adjust paths as needed). 
+# This is the path to the custom model weights (best.pt) trained on Google Colab.
 PATH_TO_CUSTOM_MODEL = './train2_results/weights/best.pt' 
-VIDEO_SOURCE = 0 # 0 pour la webcam, ou 'chemin/vers/fichier.mp4'
-CONFIDENCE_THRESHOLD = 0.35 # Garder la faible confiance pour compenser l'overfitting
-OBJECT_START_TIME = {} # Dictionnaire pour stocker l'ID de l'objet et son temps de début
+# Source 0 for the webcam, or 'path/to/video.mp4' for a fileSource 0 is the default for the local webcam. Change this to a file path (e.g., 'test.mp4') 
+# to run detection on a pre-recorded video.
+VIDEO_SOURCE = 0 
+# The Confidence Threshold is set to the standard 0.50 (50% sure) for a balanced output.
+CONFIDENCE_THRESHOLD = 0.50 
+# Dictionary to store the object's unique ID and its starting timestamp
+OBJECT_START_TIME = {} 
 
 def track_and_time_objects(model_path, source, conf_thresh):
     """
-    Charge le modèle entraîné, exécute la détection sur un flux vidéo 
-    (webcam ou fichier), et implémente un chronomètre pour chaque objet 
-    détecté, affichant le temps écoulé en secondes.
+    Loads the custom-trained YOLOv8 model, performs object detection on a video stream
+    (webcam or file), and implements a simple timer to measure how long each 
+    detected object stays in the field of view.
     
+    This function demonstrates object tracking and temporal analysis as required 
+    for the advanced project component.
+
     Args:
-        model_path (str): Chemin vers le fichier best.pt.
-        source (int/str): 0 pour webcam, ou chemin vers un fichier vidéo.
-        conf_thresh (float): Seuil de confiance minimal pour afficher une détection.
+        model_path (str): Path to the trained model weight file (best.pt).
+        source (int/str): The video source. '0' is standard for the local webcam.
+        conf_thresh (float): The minimum confidence threshold for a detection to be displayed.
     
     Returns:
-        None: Affiche la vidéo en temps réel.
+        None: Opens an OpenCV window and displays the real-time detection.
+        
+    Raises:
+        Exception: If the YOLO model file cannot be found (e.g., if best.pt is missing).
     """
-    print(f"Chargement du modèle custom : {model_path}...")
+    print(f"Loading custom model: {model_path}...")
     try:
+        # Attempts to load our custom trained model
         model = YOLO(model_path)
     except Exception as e:
-        print(f"Erreur de chargement du modèle : {e}")
+        print(f"Error loading model: {e}")
         return
 
-    # Utiliser OpenCV pour la capture vidéo
+    # Use OpenCV to handle the video capture
     cap = cv2.VideoCapture(source)
     if not cap.isOpened():
-        print(f"Erreur: Impossible d'ouvrir la source vidéo {source}")
+        print(f"Error: Could not open video source {source}")
         return
 
-    print("Lancement de la détection en temps réel (Appuyez sur 'q' pour quitter)...")
+    print("Launching real-time detection (Press 'q' to quit)...")
 
     while True:
         success, frame = cap.read()
@@ -45,50 +57,58 @@ def track_and_time_objects(model_path, source, conf_thresh):
         
         current_time = time.time()
         
-        # 1. Prédiction (avec le modèle custom)
-        # On utilise persist=True pour améliorer le suivi entre les trames
+        # 1. Prediction using the custom model
+        # We process the frame and apply the chosen confidence threshold
         results = model(frame, conf=conf_thresh, verbose=False)
         
-        # 2. Traitement des Résultats pour le Chronomètre
+        # 2. Process Detections for Timer Logic
+        # Extract the box data (coordinates, confidence, and class ID)
         detections = results[0].boxes.data.tolist()
         
         if detections:
             for detection in detections:
                 x1, y1, x2, y2, conf, cls = detection
                 
-                # Créer un ID simple basé sur la position (rudimentaire mais fonctionnel)
-                # Nous utilisons l'ID de classe et la position X pour créer une clé unique
+                # Simple tracking ID creation :
+                # We create a unique ID based on the object's class ID and its approximate 
+                # horizontal position (x1/50). This simple method is used for tracking 
+                # since the object's box should not change rapidly.
                 object_id = f"{int(cls)}-{int(x1/50)}" 
                 
-                # --- Logique du Timer ---
+                # Timer logic :
                 if object_id not in OBJECT_START_TIME:
-                    # L'objet apparaît pour la première fois
+                    # If this is the first frame we see this object ID, we start the timer
                     OBJECT_START_TIME[object_id] = current_time
                 
-                # Calculer le temps écoulé
+                # Calculate the elapsed time
                 time_elapsed = current_time - OBJECT_START_TIME[object_id]
                 time_display = f"({model.names[int(cls)]}) {int(time_elapsed)}s"
                 
-                # --- Affichage ---
-                # Dessiner la boîte de YOLO
+                # Drawing output using OpenCV :
+                # Draw the bounding box
                 cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 2)
                 
-                # Afficher le texte (Label + Chronomètre)
+                # Display the label and the timer value above the box
                 cv2.putText(frame, time_display, 
                             (int(x1), int(y1) - 10), 
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
         
-        # 3. Affichage de la Trame et Contrôle de Sortie
+        # 3. Display frame and exit control
+        # cv2.imshow displays the video window
         cv2.imshow("Detection with Timer (Jour 4)", frame)
         
-        # Sortir si la touche 'q' est pressée
+        # cv2.waitKey(1) is necessary for the window to refresh (waits 1ms).
+        # We check for the 'q' key press to close the application cleanly.
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
+    # 4. Release resources (clean up)
+    # Releases the webcam and closes all OpenCV windows
     cap.release()
     cv2.destroyAllWindows()
 
 
 if __name__ == '__main__':
-    # Le test doit être exécuté dans l'environnement virtuel actif
+    # We call the main function here. The execution must happen within the activated virtual environment 
+    # that contains the necessary libraries listed in requirements.txt.
     track_and_time_objects(PATH_TO_CUSTOM_MODEL, VIDEO_SOURCE, CONFIDENCE_THRESHOLD)
