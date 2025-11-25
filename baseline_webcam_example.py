@@ -1,4 +1,4 @@
-# detect_webcam.py
+# baseline_webcam_example.py
 import cv2
 from ultralytics import YOLO
 import time
