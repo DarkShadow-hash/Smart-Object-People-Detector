@@ -22,20 +22,7 @@ Core Goal: Demonstrate the effectiveness of Transfer Learning to specialize a ge
                                              
 
 
-### Why Two Projects?
-Project 1 Shows the Problem:
-Generic detection that confuses objects
+### Project steps :
 
-"Is that a phone or a chair?" 
-
-But why ?
-It's because it's limited to 80 pre-defined COCO classes.
-
-Project 2 provides the solution:
-Personalized AI trained to detect specifically YOUR objects
-
-"That's definitely your iPhone with 95% confidence!" 
-
-Recognizes anything you care about
 
 
